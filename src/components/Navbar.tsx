@@ -1,18 +1,120 @@
 import { Button } from "@/components/ui/button";
-import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Shield, User, Bell, BookOpen, Handshake, GraduationCap, MessageSquare } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Menu, X, Shield, User, Bell, BookOpen, Handshake, GraduationCap, MessageSquare, Check } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import logoImg from "@/assets/logo.png";
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const getReadNotifs = (): Set<string> => {
+  try { return new Set(JSON.parse(localStorage.getItem("read-notifs") || "[]")); } catch { return new Set(); }
+};
+const saveReadNotifs = (s: Set<string>) => localStorage.setItem("read-notifs", JSON.stringify([...s]));
+
+const typeIcon: Record<string, string> = {
+  general: "📢", activity: "🎯", warning: "⚠️", success: "✅", info: "ℹ️",
+  volunteer: "🤝", campaign: "📣",
+};
+
+// ─── NotifBell: shared dropdown component ─────────────────────────────────────
+const NotifBell = ({
+  notifications, unreadCount, onMarkAll, onMarkOne, onClose, isMobile
+}: {
+  notifications: any[]; unreadCount: number; onMarkAll: () => void;
+  onMarkOne: (id: string) => void; onClose: () => void; isMobile?: boolean;
+}) => {
+  const navigate = useNavigate();
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -8, scale: 0.95 }}
+      transition={{ duration: 0.18 }}
+      className={`absolute top-full mt-2 bg-card border border-border rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col ${isMobile ? "left-0 w-72" : "left-0 w-[340px]"}`}
+      style={{ maxHeight: "420px" }}
+    >
+      {/* Header */}
+      <div className="p-3 border-b border-border flex items-center justify-between bg-gradient-to-r from-primary/5 to-transparent shrink-0">
+        <div className="flex items-center gap-2">
+          <Bell className="h-4 w-4 text-primary" />
+          <span className="font-bold text-sm text-foreground">الإشعارات</span>
+          {unreadCount > 0 && (
+            <span className="bg-primary/10 text-primary text-[10px] font-bold px-1.5 py-0.5 rounded-full">{unreadCount} جديد</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          {unreadCount > 0 && (
+            <button onClick={onMarkAll} className="text-xs text-primary hover:text-primary/80 flex items-center gap-0.5 transition-colors px-1.5 py-0.5 rounded-lg hover:bg-primary/10">
+              <Check className="h-3 w-3" /> الكل مقروء
+            </button>
+          )}
+          <button
+            onClick={() => { onClose(); navigate("/profile"); }}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 rounded-lg hover:bg-accent"
+          >
+            عرض الكل
+          </button>
+        </div>
+      </div>
+
+      {/* List */}
+      <div className="overflow-y-auto flex-1">
+        {notifications.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">
+            <Bell className="h-8 w-8 mx-auto mb-2 opacity-20" />
+            <p className="text-sm">لا توجد إشعارات</p>
+          </div>
+        ) : notifications.map(n => {
+          const isRead = getReadNotifs().has(n.id);
+          const images = n.image_urls ? n.image_urls.split("|||").filter(Boolean) : [];
+          return (
+            <div
+              key={n.id}
+              onClick={() => onMarkOne(n.id)}
+              className={`px-3 py-2.5 border-b border-border/50 last:border-0 transition-colors cursor-pointer hover:bg-accent/30 ${!isRead ? "bg-primary/3" : ""}`}
+            >
+              <div className="flex gap-2.5 items-start">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-sm ${!isRead ? "bg-primary/10" : "bg-muted"}`}>
+                  {typeIcon[n.type] || "📢"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start gap-1.5">
+                    <p className={`text-xs leading-tight flex-1 ${!isRead ? "font-bold text-foreground" : "text-foreground"}`}>{n.title}</p>
+                    {!isRead && <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0 mt-1" />}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{n.message}</p>
+                  {images.length > 0 && (
+                    <div className="flex gap-1 mt-1.5">
+                      {images.slice(0, 3).map((url: string, i: number) => (
+                        <img key={i} src={url} alt="" className="w-10 h-10 rounded-lg object-cover border border-border" />
+                      ))}
+                      {images.length > 3 && <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-[10px] text-muted-foreground font-bold border border-border">+{images.length - 3}</div>}
+                    </div>
+                  )}
+                  <p className="text-[10px] text-muted-foreground mt-1">{new Date(n.created_at).toLocaleDateString("ar-EG", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+};
+
+// ─── Main Navbar ──────────────────────────────────────────────────────────────
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [readNotifs, setReadNotifs] = useState<Set<string>>(getReadNotifs);
   const location = useLocation();
   const { user } = useAuth();
+  const bellRef = useRef<HTMLDivElement>(null);
+  const mobileBellRef = useRef<HTMLDivElement>(null);
 
   const navLinks = [
     { name: "الرئيسية", path: "/" },
@@ -28,11 +130,7 @@ const Navbar = () => {
     { name: "المتطوعين", path: "/volunteers" },
     { name: "الأسئلة الشائعة", path: "/faq" },
   ];
-
-  // Show first 8 links in desktop nav
   const desktopLinks = navLinks.slice(0, 8);
-
-  // Quick icon shortcuts for mobile header
   const mobileIcons = [
     { icon: BookOpen, path: "/digital-awareness", label: "التوعية" },
     { icon: Handshake, path: "/partners", label: "الشركاء" },
@@ -41,24 +139,56 @@ const Navbar = () => {
   ];
 
   const isActive = (path: string) => location.pathname === path;
+  const unreadCount = notifications.filter(n => !readNotifs.has(n.id)).length;
 
+  // Fetch notifications + realtime
   useEffect(() => {
     const fetchNotifs = async () => {
-      const { data } = await supabase.from("notifications").select("*").order("created_at", { ascending: false }).limit(5);
+      const { data } = await supabase.from("notifications").select("*").order("created_at", { ascending: false }).limit(20);
       setNotifications((data as any[]) || []);
     };
     fetchNotifs();
-
-    const channel = supabase.channel("navbar-notifs").on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications" }, (payload) => {
-      setNotifications(prev => [payload.new as any, ...prev.slice(0, 4)]);
-    }).subscribe();
+    const channel = supabase.channel("navbar-notifs-v2")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications" }, (payload) => {
+        setNotifications(prev => [payload.new as any, ...prev.slice(0, 19)]);
+      }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!showNotifs) return;
+    const handler = (e: MouseEvent) => {
+      if (bellRef.current && !bellRef.current.contains(e.target as Node) &&
+        mobileBellRef.current && !mobileBellRef.current.contains(e.target as Node)) {
+        setShowNotifs(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showNotifs]);
+
+  // Close dropdown on route change
+  useEffect(() => { setShowNotifs(false); setIsOpen(false); }, [location.pathname]);
+
+  const markOne = (id: string) => {
+    const updated = new Set(readNotifs);
+    updated.add(id);
+    setReadNotifs(updated);
+    saveReadNotifs(updated);
+  };
+
+  const markAll = () => {
+    const updated = new Set(notifications.map(n => n.id));
+    setReadNotifs(updated);
+    saveReadNotifs(updated);
+  };
 
   return (
     <nav className="fixed w-full z-50 bg-card/80 backdrop-blur-md border-b border-primary/10 shadow-sm">
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex justify-between items-center h-20">
+          {/* Logo */}
           <Link to="/" className="flex items-center gap-3">
             <img src={logoImg} alt="شعار الوحدة" className="h-16 w-auto object-contain" />
             <div className="hidden md:flex flex-col text-right">
@@ -74,43 +204,47 @@ const Navbar = () => {
                 {link.name}
               </Link>
             ))}
-            {/* Notifications bell */}
-            <div className="relative">
-              <button onClick={() => setShowNotifs(!showNotifs)} className="relative text-muted-foreground hover:text-primary p-1 transition-colors">
-                <Bell className="h-5 w-5" />
-                {notifications.length > 0 && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-white text-[10px] rounded-full flex items-center justify-center"
-                  >
-                    {notifications.length}
-                  </motion.span>
-                )}
-              </button>
+
+            {/* Bell - desktop */}
+            <div className="relative" ref={bellRef}>
+              <motion.button
+                onClick={() => setShowNotifs(v => !v)}
+                className="relative text-muted-foreground hover:text-primary p-2 rounded-xl hover:bg-accent transition-colors"
+                whileTap={{ scale: 0.9 }}
+              >
+                <motion.div
+                  animate={unreadCount > 0 ? { rotate: [0, -10, 10, -10, 10, 0] } : {}}
+                  transition={{ duration: 0.5, delay: 0.5 }}
+                >
+                  <Bell className={`h-5 w-5 ${unreadCount > 0 ? "text-primary" : ""}`} />
+                </motion.div>
+                <AnimatePresence>
+                  {unreadCount > 0 && (
+                    <motion.span
+                      key="badge"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-destructive text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5"
+                    >
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </motion.button>
               <AnimatePresence>
                 {showNotifs && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute left-0 top-full mt-2 w-80 bg-card border border-border rounded-xl shadow-xl z-50 max-h-96 overflow-y-auto"
-                  >
-                    <div className="p-3 border-b border-border font-bold text-sm text-foreground">الإشعارات</div>
-                    {notifications.length === 0 ? (
-                      <p className="p-4 text-sm text-muted-foreground text-center">لا توجد إشعارات</p>
-                    ) : notifications.map(n => (
-                      <div key={n.id} className="p-3 border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                        <p className="text-sm font-bold text-foreground">{n.title}</p>
-                        <p className="text-xs text-muted-foreground">{n.message}</p>
-                        <p className="text-[10px] text-muted-foreground mt-1">{new Date(n.created_at).toLocaleDateString("ar-EG")}</p>
-                      </div>
-                    ))}
-                  </motion.div>
+                  <NotifBell
+                    notifications={notifications}
+                    unreadCount={unreadCount}
+                    onMarkAll={markAll}
+                    onMarkOne={markOne}
+                    onClose={() => setShowNotifs(false)}
+                  />
                 )}
               </AnimatePresence>
             </div>
+
             <Link to="/report">
               <Button variant="default" size="sm" className="bg-gradient-brand shadow-lg hover:shadow-xl transition-all duration-300">
                 <Shield className="ml-1 h-4 w-4" /> إبلاغ سري
@@ -121,7 +255,9 @@ const Navbar = () => {
             </Link>
             {user ? (
               <Link to="/profile">
-                <Button variant="ghost" size="icon"><User className="h-5 w-5" /></Button>
+                <Button variant="ghost" size="icon" className="rounded-xl">
+                  <User className="h-5 w-5" />
+                </Button>
               </Link>
             ) : (
               <Link to="/auth">
@@ -130,88 +266,103 @@ const Navbar = () => {
             )}
           </div>
 
-          {/* Mobile header icons */}
+          {/* Mobile header */}
           <div className="md:hidden flex items-center gap-1">
             {mobileIcons.map((item) => (
               <Link
-                key={item.path}
-                to={item.path}
+                key={item.path} to={item.path} title={item.label}
                 className={`p-2 rounded-lg transition-colors ${isActive(item.path) ? "text-primary bg-accent" : "text-muted-foreground hover:text-primary"}`}
-                title={item.label}
               >
                 <item.icon className="h-4 w-4" />
               </Link>
             ))}
-            <div className="relative">
-              <button onClick={() => setShowNotifs(!showNotifs)} className="relative text-muted-foreground hover:text-primary p-2">
-                <Bell className="h-4 w-4" />
-                {notifications.length > 0 && <span className="absolute top-0.5 right-0.5 w-3 h-3 bg-destructive text-white text-[8px] rounded-full flex items-center justify-center">{notifications.length}</span>}
-              </button>
+
+            {/* Bell - mobile */}
+            <div className="relative" ref={mobileBellRef}>
+              <motion.button
+                onClick={() => setShowNotifs(v => !v)}
+                className="relative p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors"
+                whileTap={{ scale: 0.9 }}
+              >
+                <Bell className={`h-4 w-4 ${unreadCount > 0 ? "text-primary" : ""}`} />
+                <AnimatePresence>
+                  {unreadCount > 0 && (
+                    <motion.span
+                      key="mbadge"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      className="absolute top-0.5 right-0.5 min-w-[12px] h-3 bg-destructive text-white text-[8px] font-bold rounded-full flex items-center justify-center"
+                    >
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </motion.button>
               <AnimatePresence>
                 {showNotifs && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="absolute left-0 top-full mt-2 w-72 bg-card border border-border rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto"
-                  >
-                    {notifications.length === 0 ? (
-                      <p className="p-4 text-sm text-muted-foreground text-center">لا توجد إشعارات</p>
-                    ) : notifications.map(n => (
-                      <div key={n.id} className="p-3 border-b border-border last:border-0">
-                        <p className="text-sm font-bold text-foreground">{n.title}</p>
-                        <p className="text-xs text-muted-foreground">{n.message}</p>
-                      </div>
-                    ))}
-                  </motion.div>
+                  <NotifBell
+                    notifications={notifications}
+                    unreadCount={unreadCount}
+                    onMarkAll={markAll}
+                    onMarkOne={markOne}
+                    onClose={() => setShowNotifs(false)}
+                    isMobile
+                  />
                 )}
               </AnimatePresence>
             </div>
-            <button onClick={() => setIsOpen(!isOpen)} className="text-muted-foreground hover:text-primary focus:outline-none p-2">
-              {isOpen ? <X size={22} /> : <Menu size={22} />}
+
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors"
+            >
+              {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
-      </div>
 
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3 }}
-            className="md:hidden bg-card border-t border-border"
-          >
-            <div className="container mx-auto px-4 py-4 flex flex-col gap-2">
-              {navLinks.filter(l => !mobileIcons.some(i => i.path === l.path)).map((link, i) => (
-                <motion.div
-                  key={link.path}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                >
+        {/* Mobile menu */}
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="md:hidden border-t border-border overflow-hidden"
+            >
+              <div className="py-4 space-y-1">
+                {navLinks.map((link) => (
                   <Link
-                    to={link.path}
+                    key={link.path} to={link.path}
+                    className={`block px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${isActive(link.path) ? "bg-primary/10 text-primary font-bold" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
                     onClick={() => setIsOpen(false)}
-                    className={`block text-sm font-medium py-2.5 px-3 rounded-lg transition-colors ${isActive(link.path) ? "text-primary bg-accent" : "text-muted-foreground hover:bg-accent/50"}`}
                   >
                     {link.name}
                   </Link>
-                </motion.div>
-              ))}
-              <div className="flex gap-2 pt-2">
-                <Link to="/report" onClick={() => setIsOpen(false)} className="flex-1">
-                  <Button className="w-full bg-gradient-brand"><Shield className="ml-2 h-4 w-4" /> إبلاغ سري</Button>
-                </Link>
-                <Link to="/dashboard" onClick={() => setIsOpen(false)} className="flex-1">
-                  <Button variant="outline" className="w-full">لوحة التحكم</Button>
-                </Link>
+                ))}
+                <div className="flex gap-2 flex-wrap pt-2 px-4">
+                  <Link to="/report" className="flex-1">
+                    <Button className="w-full bg-gradient-brand" size="sm"><Shield className="ml-1 h-4 w-4" /> إبلاغ سري</Button>
+                  </Link>
+                  <Link to="/dashboard" className="flex-1">
+                    <Button variant="outline" className="w-full" size="sm">لوحة التحكم</Button>
+                  </Link>
+                  {user ? (
+                    <Link to="/profile" className="flex-1">
+                      <Button variant="ghost" className="w-full" size="sm"><User className="ml-1 h-4 w-4" /> حسابي</Button>
+                    </Link>
+                  ) : (
+                    <Link to="/auth" className="flex-1">
+                      <Button variant="ghost" className="w-full" size="sm">تسجيل الدخول</Button>
+                    </Link>
+                  )}
+                </div>
               </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </nav>
   );
 };

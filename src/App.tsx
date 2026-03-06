@@ -22,6 +22,8 @@ import KnowYourRights from "./pages/KnowYourRights";
 import VolunteersShowcase from "./pages/VolunteersShowcase";
 import Forum from "./pages/Forum";
 import Install from "./pages/Install";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -104,6 +106,8 @@ const App = () => (
               <Route path="/know-your-rights" element={<KnowYourRights />} />
               <Route path="/forum" element={<Forum />} />
               <Route path="/install" element={<Install />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Layout>

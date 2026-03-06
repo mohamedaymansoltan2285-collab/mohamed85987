@@ -10,6 +10,13 @@ type Msg = { role: "user" | "assistant"; content: string };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
 
+const GREETING_MESSAGES = [
+  { text: "مرحباً بك! 👋 أنا هنا لمساعدتك", sub: "اسألني عن أي شيء" },
+  { text: "هل تحتاج مساعدة؟ ✨", sub: "أنا صديقك الذكي دائماً" },
+  { text: "أهلاً وسهلاً! 🤝", sub: "تحدث معي بحرية تامة" },
+  { text: "لا تتردد في السؤال 💬", sub: "خدمتك شرف لي" },
+];
+
 const AIChatbot = () => {
   const [open, setOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
@@ -17,8 +24,30 @@ const AIChatbot = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
+  const [greeting, setGreeting] = useState<{ text: string; sub: string } | null>(null);
+  const greetingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+
+  // Show greeting 2s after mount, then every 5 minutes
+  useEffect(() => {
+    let greetingIdx = 0;
+    const showGreeting = () => {
+      if (open) return; // don't show if chat is already open
+      setGreeting(GREETING_MESSAGES[greetingIdx % GREETING_MESSAGES.length]);
+      greetingIdx++;
+      setTimeout(() => setGreeting(null), 4000); // hide after 4s
+    };
+
+    const initialTimer = setTimeout(showGreeting, 2000);
+    const interval = setInterval(showGreeting, 5 * 60 * 1000);
+    greetingTimerRef.current = interval;
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -124,25 +153,75 @@ const AIChatbot = () => {
 
   return (
     <>
-      {/* Floating button */}
+      {/* Greeting bubble */}
+      <AnimatePresence>
+        {greeting && !open && !fullscreen && (
+          <motion.div
+            key={greeting.text}
+            initial={{ opacity: 0, x: -16, scale: 0.88 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -16, scale: 0.88 }}
+            transition={{ type: "spring", damping: 22, stiffness: 280 }}
+            onClick={() => { setGreeting(null); setOpen(true); }}
+            className="fixed bottom-[5.5rem] md:bottom-[4.8rem] left-20 md:left-[5.5rem] z-50 cursor-pointer"
+          >
+            <div className="relative max-w-[210px] rounded-2xl rounded-bl-none shadow-xl overflow-hidden">
+              {/* Brand gradient top bar */}
+              <div className="h-1 bg-gradient-brand" />
+              <div className="bg-card border border-border/60 px-4 py-3">
+                <p className="text-sm font-bold text-foreground leading-snug">{greeting.text}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">{greeting.sub}</p>
+              </div>
+              {/* Triangle pointer at bottom-left */}
+              <div
+                className="absolute -bottom-2 left-0 w-0 h-0"
+                style={{ borderLeft: "10px solid transparent", borderRight: "0px solid transparent", borderTop: "10px solid hsl(var(--card))" }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating button — wrapper carries the pulse rings OUTSIDE overflow-hidden */}
       <AnimatePresence>
         {!fullscreen && (
-          <motion.button
-            onClick={() => setOpen(!open)}
-            className="fixed bottom-20 md:bottom-6 left-4 md:left-6 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform overflow-hidden border-2 border-primary/30"
-            whileTap={{ scale: 0.9 }}
+          <motion.div
+            className="fixed bottom-20 md:bottom-6 left-4 md:left-6 z-50 w-14 h-14"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             exit={{ scale: 0 }}
+            transition={{ type: "spring", damping: 20, stiffness: 260 }}
           >
-            {open ? (
-              <div className="w-full h-full bg-gradient-brand flex items-center justify-center">
-                <X className="h-6 w-6 text-white" />
-              </div>
-            ) : (
-              <img src={chatAvatar} alt="مساعد ذكي" className="w-full h-full object-cover" />
+            {/* Pulse rings live outside the clipped button */}
+            {greeting && !open && (
+              <>
+                <motion.span
+                  className="absolute inset-0 rounded-full bg-primary/20"
+                  animate={{ scale: [1, 1.7], opacity: [0.5, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
+                />
+                <motion.span
+                  className="absolute inset-0 rounded-full bg-primary/15"
+                  animate={{ scale: [1, 2.2], opacity: [0.4, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut", delay: 0.35 }}
+                />
+              </>
             )}
-          </motion.button>
+            <motion.button
+              onClick={() => { setGreeting(null); setOpen(!open); }}
+              className="w-14 h-14 rounded-full shadow-2xl flex items-center justify-center overflow-hidden border-2 border-primary/40 bg-card"
+              whileTap={{ scale: 0.88 }}
+              whileHover={{ scale: 1.07 }}
+            >
+              {open ? (
+                <div className="w-full h-full bg-gradient-brand flex items-center justify-center">
+                  <X className="h-6 w-6 text-white" />
+                </div>
+              ) : (
+                <img src={chatAvatar} alt="مساعد ذكي" className="w-full h-full object-cover" />
+              )}
+            </motion.button>
+          </motion.div>
         )}
       </AnimatePresence>
 

@@ -17,24 +17,28 @@ const BottomNav = () => {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-md border-t border-border md:hidden">
-      <div className="flex justify-around items-center h-16 px-2">
-        {links.map((link) => (
+    <nav className="fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around md:hidden z-50">
+      {links.map((link) => {
+        const active = isActive(link.path);
+        return (
           <Link
             key={link.path}
             to={link.path}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${
-              isActive(link.path)
-                ? "text-primary"
-                : "text-muted-foreground"
+            className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-colors ${
+              active ? "text-primary" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <link.icon size={20} strokeWidth={isActive(link.path) ? 2.5 : 1.5} />
-            <span className="text-[10px] font-medium">{link.label}</span>
+            <link.icon
+              size={20}
+              strokeWidth={active ? 2.5 : 1.8}
+            />
+            <span className={`text-[10px] font-medium ${active ? "font-bold" : ""}`}>
+              {link.label}
+            </span>
           </Link>
-        ))}
-      </div>
-    </div>
+        );
+      })}
+    </nav>
   );
 };
 

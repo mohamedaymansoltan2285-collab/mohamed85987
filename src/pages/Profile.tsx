@@ -148,8 +148,17 @@ const Profile = () => {
   const deptLabel = ekcDepartments.find(d => d.value === department)?.label || department;
 
   const notifTypeIcons: Record<string, string> = {
-    general: "📢", activity: "🎯", warning: "⚠️", success: "✅", info: "ℹ️",
+  general: "📢", activity: "🎯", warning: "⚠️", success: "✅", info: "ℹ️",
+  volunteer: "🤝", campaign: "📣",
   };
+
+  const [notifFilter, setNotifFilter] = useState<string>("all");
+
+  const filteredNotifications = notifFilter === "all"
+    ? notifications
+    : notifFilter === "unread"
+    ? notifications.filter(n => !readNotifs.has(n.id))
+    : notifications.filter(n => n.type === notifFilter);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
@@ -257,10 +266,11 @@ const Profile = () => {
           <TabsTrigger value="chat"><MessageSquare className="h-4 w-4 ml-1" /> المراسلات</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="notifications">
+          <TabsContent value="notifications">
           <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
-            {/* Notification Header */}
-            <div className="p-4 border-b border-border flex items-center justify-between bg-accent/30">
+          {/* Header */}
+          <div className="p-4 border-b border-border bg-accent/30">
+            <div className="flex items-center justify-between mb-3">
               <div>
                 <h3 className="font-bold text-foreground text-sm">الإشعارات</h3>
                 <p className="text-xs text-muted-foreground">{unreadCount > 0 ? `${unreadCount} إشعار جديد` : "لا توجد إشعارات جديدة"}</p>
@@ -271,40 +281,73 @@ const Profile = () => {
                 </Button>
               )}
             </div>
-
-            {notifications.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Bell className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">لا توجد إشعارات حالياً</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-border max-h-[500px] overflow-y-auto">
-                {notifications.map((n, i) => {
-                  const isRead = readNotifs.has(n.id);
-                  return (
-                    <motion.div
-                      key={n.id}
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.03 }}
-                      onClick={() => markAsRead(n.id)}
-                      className={`flex gap-3 p-4 cursor-pointer transition-colors hover:bg-accent/30 ${!isRead ? "bg-primary/5" : ""}`}
-                    >
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg ${!isRead ? "bg-primary/10" : "bg-muted"}`}>
-                        {notifTypeIcons[n.type] || "📢"}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className={`text-sm ${!isRead ? "font-bold text-foreground" : "text-foreground"}`}>{n.title}</p>
-                          {!isRead && <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />}
-                        </div>
-                        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{n.message}</p>
-                        <p className="text-[10px] text-muted-foreground mt-1">{new Date(n.created_at).toLocaleDateString("ar-EG", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
-                        {n.link && (
-                          <Link to={n.link} className="inline-flex items-center gap-1 text-[10px] text-primary mt-1 hover:underline">
-                            <ExternalLink className="h-2.5 w-2.5" /> عرض
-                          </Link>
-                        )}
+            {/* Filters */}
+            <div className="flex gap-1.5 flex-wrap">
+              {[
+                { key: "all", label: "الكل" },
+                { key: "unread", label: "غير مقروء" },
+                { key: "activity", label: "أنشطة" },
+                { key: "general", label: "عام" },
+                { key: "campaign", label: "حملات" },
+              ].map(f => (
+                <button
+                  key={f.key}
+                  onClick={() => setNotifFilter(f.key)}
+                  className={`text-[11px] px-2.5 py-1 rounded-full transition-all font-medium ${notifFilter === f.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"}`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {filteredNotifications.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+          <Bell className="h-10 w-10 mx-auto mb-3 opacity-30" />
+          <p className="text-sm">{notifFilter !== "all" ? "لا توجد إشعارات في هذا التصنيف" : "لا توجد إشعارات حالياً"}</p>
+          </div>
+          ) : (
+          <div className="divide-y divide-border max-h-[560px] overflow-y-auto">
+          {filteredNotifications.map((n, i) => {
+          const isRead = readNotifs.has(n.id);
+          const images = n.image_urls ? n.image_urls.split("|||").filter(Boolean) : [];
+          return (
+          <motion.div
+          key={n.id}
+          initial={{ opacity: 0, x: 10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: i * 0.03 }}
+          onClick={() => markAsRead(n.id)}
+          className={`flex gap-3 p-4 cursor-pointer transition-colors hover:bg-accent/30 ${!isRead ? "bg-primary/5" : ""}`}
+          >
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg ${!isRead ? "bg-primary/10" : "bg-muted"}`}>
+          {notifTypeIcons[n.type] || "📢"}
+          </div>
+          <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+          <p className={`text-sm ${!isRead ? "font-bold text-foreground" : "text-foreground"}`}>{n.title}</p>
+          {!isRead && <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />}
+          </div>
+          <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{n.message}</p>
+          {/* Images grid */}
+          {images.length > 0 && (
+            <div className={`mt-2 grid gap-1.5 ${images.length === 1 ? "grid-cols-1" : images.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+              {images.slice(0, 3).map((url: string, idx: number) => (
+                <div key={idx} className="relative rounded-xl overflow-hidden border border-border aspect-video">
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                  {idx === 2 && images.length > 3 && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold text-sm">+{images.length - 3}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-[10px] text-muted-foreground mt-1">{new Date(n.created_at).toLocaleDateString("ar-EG", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+          {n.link && (
+          <Link to={n.link} className="inline-flex items-center gap-1 text-[10px] text-primary mt-1 hover:underline">
+          <ExternalLink className="h-2.5 w-2.5" /> عرض
+          </Link>
+          )}
                       </div>
                     </motion.div>
                   );
