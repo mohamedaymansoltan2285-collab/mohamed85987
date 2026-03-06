@@ -158,57 +158,70 @@ const AIChatbot = () => {
         {greeting && !open && !fullscreen && (
           <motion.div
             key={greeting.text}
-            initial={{ opacity: 0, x: -20, scale: 0.85 }}
+            initial={{ opacity: 0, x: -16, scale: 0.88 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: -20, scale: 0.85 }}
-            transition={{ type: "spring", damping: 20, stiffness: 260 }}
+            exit={{ opacity: 0, x: -16, scale: 0.88 }}
+            transition={{ type: "spring", damping: 22, stiffness: 280 }}
             onClick={() => { setGreeting(null); setOpen(true); }}
-            className="fixed bottom-[5.5rem] md:bottom-[4.5rem] left-20 md:left-[5.5rem] z-50 cursor-pointer"
+            className="fixed bottom-[5.5rem] md:bottom-[4.8rem] left-20 md:left-[5.5rem] z-50 cursor-pointer"
           >
-            <div className="bg-card border border-border shadow-2xl rounded-2xl rounded-bl-sm px-4 py-3 max-w-[200px] relative">
-              {/* Triangle pointer */}
-              <div className="absolute -left-2 bottom-3 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-r-8 border-r-card" />
-              <p className="text-sm font-bold text-foreground leading-snug">{greeting.text}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">{greeting.sub}</p>
+            <div className="relative max-w-[210px] rounded-2xl rounded-bl-none shadow-xl overflow-hidden">
+              {/* Brand gradient top bar */}
+              <div className="h-1 bg-gradient-brand" />
+              <div className="bg-card border border-border/60 px-4 py-3">
+                <p className="text-sm font-bold text-foreground leading-snug">{greeting.text}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">{greeting.sub}</p>
+              </div>
+              {/* Triangle pointer at bottom-left */}
+              <div
+                className="absolute -bottom-2 left-0 w-0 h-0"
+                style={{ borderLeft: "10px solid transparent", borderRight: "0px solid transparent", borderTop: "10px solid hsl(var(--card))" }}
+              />
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Floating button */}
+      {/* Floating button — wrapper carries the pulse rings OUTSIDE overflow-hidden */}
       <AnimatePresence>
         {!fullscreen && (
-          <motion.button
-            onClick={() => { setGreeting(null); setOpen(!open); }}
-            className="fixed bottom-20 md:bottom-6 left-4 md:left-6 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center overflow-hidden border-2 border-primary/30 relative"
-            whileTap={{ scale: 0.9 }}
+          <motion.div
+            className="fixed bottom-20 md:bottom-6 left-4 md:left-6 z-50 w-14 h-14"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             exit={{ scale: 0 }}
+            transition={{ type: "spring", damping: 20, stiffness: 260 }}
           >
-            {/* Pulse ring when greeting is showing */}
+            {/* Pulse rings live outside the clipped button */}
             {greeting && !open && (
               <>
                 <motion.span
-                  className="absolute inset-0 rounded-full border-2 border-primary/50"
-                  animate={{ scale: [1, 1.6], opacity: [0.6, 0] }}
-                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
+                  className="absolute inset-0 rounded-full bg-primary/20"
+                  animate={{ scale: [1, 1.7], opacity: [0.5, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
                 />
                 <motion.span
-                  className="absolute inset-0 rounded-full border-2 border-primary/30"
-                  animate={{ scale: [1, 2], opacity: [0.4, 0] }}
-                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut", delay: 0.3 }}
+                  className="absolute inset-0 rounded-full bg-primary/15"
+                  animate={{ scale: [1, 2.2], opacity: [0.4, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut", delay: 0.35 }}
                 />
               </>
             )}
-            {open ? (
-              <div className="w-full h-full bg-gradient-brand flex items-center justify-center">
-                <X className="h-6 w-6 text-white" />
-              </div>
-            ) : (
-              <img src={chatAvatar} alt="مساعد ذكي" className="w-full h-full object-cover" />
-            )}
-          </motion.button>
+            <motion.button
+              onClick={() => { setGreeting(null); setOpen(!open); }}
+              className="w-14 h-14 rounded-full shadow-2xl flex items-center justify-center overflow-hidden border-2 border-primary/40 bg-card"
+              whileTap={{ scale: 0.88 }}
+              whileHover={{ scale: 1.07 }}
+            >
+              {open ? (
+                <div className="w-full h-full bg-gradient-brand flex items-center justify-center">
+                  <X className="h-6 w-6 text-white" />
+                </div>
+              ) : (
+                <img src={chatAvatar} alt="مساعد ذكي" className="w-full h-full object-cover" />
+              )}
+            </motion.button>
+          </motion.div>
         )}
       </AnimatePresence>
 
