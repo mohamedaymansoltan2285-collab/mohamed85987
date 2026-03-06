@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Lockfile — regenerated fresh on each install to avoid stale peer dep pins
+package-lock.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
