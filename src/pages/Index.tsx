@@ -316,14 +316,39 @@ const Index = () => {
 
       {/* Partners Logos Section */}
       <ScrollReveal>
-        <section className="py-12 bg-card border-y border-border">
-          <div className="container mx-auto px-4 md:px-6">
-            <div className="text-center mb-8">
-              <p className="text-sm font-bold text-muted-foreground">تحت رعاية وبالتعاون مع</p>
+        <section className="py-14 relative overflow-hidden border-y border-border">
+          {/* Subtle background */}
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-50/40 via-card to-blue-50/30 dark:from-purple-950/10 dark:via-card dark:to-blue-950/10" />
+          <div className="absolute top-0 left-1/4 w-64 h-64 bg-primary/4 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 right-1/4 w-48 h-48 bg-secondary/4 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="container mx-auto px-4 md:px-6 relative z-10">
+            <div className="text-center mb-10">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 mb-1">بالتعاون مع</p>
+              <h3 className="text-lg font-bold text-foreground">تحت رعاية</h3>
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-10 md:gap-16">
-              <img src={btuLogo} alt="جامعة بني سويف التكنولوجية" className="h-16 md:h-20 w-auto object-contain opacity-80 hover:opacity-100 transition-opacity" />
-              <img src={ncwLogo} alt="المجلس القومي للمرأة" className="h-16 md:h-20 w-auto object-contain opacity-80 hover:opacity-100 transition-opacity" />
+            <div className="flex flex-wrap items-center justify-center gap-8 md:gap-16">
+              {[
+                { src: btuLogo, alt: "جامعة بني سويف التكنولوجية", label: "جامعة بني سويف التكنولوجية" },
+                { src: ncwLogo, alt: "المجلس القومي للمرأة", label: "المجلس القومي للمرأة" },
+              ].map(({ src, alt, label }) => (
+                <motion.div
+                  key={alt}
+                  whileHover={{ scale: 1.05 }}
+                  className="flex flex-col items-center gap-3 group"
+                >
+                  <div className="w-24 h-24 md:w-28 md:h-28 rounded-2xl bg-card border border-border shadow-sm group-hover:shadow-md transition-shadow flex items-center justify-center p-3">
+                    <img
+                      src={src}
+                      alt={alt}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <p className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors text-center max-w-[120px] leading-relaxed">
+                    {label}
+                  </p>
+                </motion.div>
+              ))}
             </div>
           </div>
         </section>

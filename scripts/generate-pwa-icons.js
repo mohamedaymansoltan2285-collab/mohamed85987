@@ -1,10 +1,9 @@
 import { createCanvas } from "canvas";
-import { writeFileSync } from "fs";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
+import { writeFileSync, mkdirSync } from "fs";
+import { join } from "path";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const publicDir = join(__dirname, "../public");
+const publicDir = "/vercel/share/v0-project/public";
+mkdirSync(publicDir, { recursive: true });
 
 function generateIcon(size) {
   const canvas = createCanvas(size, size);
