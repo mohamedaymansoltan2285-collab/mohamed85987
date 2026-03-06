@@ -10,6 +10,13 @@ type Msg = { role: "user" | "assistant"; content: string };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
 
+const GREETING_MESSAGES = [
+  { text: "مرحباً بك! 👋 أنا هنا لمساعدتك", sub: "اسألني عن أي شيء" },
+  { text: "هل تحتاج مساعدة؟ ✨", sub: "أنا صديقك الذكي دائماً" },
+  { text: "أهلاً وسهلاً! 🤝", sub: "تحدث معي بحرية تامة" },
+  { text: "لا تتردد في السؤال 💬", sub: "خدمتك شرف لي" },
+];
+
 const AIChatbot = () => {
   const [open, setOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
@@ -17,8 +24,30 @@ const AIChatbot = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
+  const [greeting, setGreeting] = useState<{ text: string; sub: string } | null>(null);
+  const greetingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+
+  // Show greeting 2s after mount, then every 5 minutes
+  useEffect(() => {
+    let greetingIdx = 0;
+    const showGreeting = () => {
+      if (open) return; // don't show if chat is already open
+      setGreeting(GREETING_MESSAGES[greetingIdx % GREETING_MESSAGES.length]);
+      greetingIdx++;
+      setTimeout(() => setGreeting(null), 4000); // hide after 4s
+    };
+
+    const initialTimer = setTimeout(showGreeting, 2000);
+    const interval = setInterval(showGreeting, 5 * 60 * 1000);
+    greetingTimerRef.current = interval;
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -124,17 +153,54 @@ const AIChatbot = () => {
 
   return (
     <>
+      {/* Greeting bubble */}
+      <AnimatePresence>
+        {greeting && !open && !fullscreen && (
+          <motion.div
+            key={greeting.text}
+            initial={{ opacity: 0, x: -20, scale: 0.85 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -20, scale: 0.85 }}
+            transition={{ type: "spring", damping: 20, stiffness: 260 }}
+            onClick={() => { setGreeting(null); setOpen(true); }}
+            className="fixed bottom-[5.5rem] md:bottom-[4.5rem] left-20 md:left-[5.5rem] z-50 cursor-pointer"
+          >
+            <div className="bg-card border border-border shadow-2xl rounded-2xl rounded-bl-sm px-4 py-3 max-w-[200px] relative">
+              {/* Triangle pointer */}
+              <div className="absolute -left-2 bottom-3 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-r-8 border-r-card" />
+              <p className="text-sm font-bold text-foreground leading-snug">{greeting.text}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{greeting.sub}</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Floating button */}
       <AnimatePresence>
         {!fullscreen && (
           <motion.button
-            onClick={() => setOpen(!open)}
-            className="fixed bottom-20 md:bottom-6 left-4 md:left-6 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform overflow-hidden border-2 border-primary/30"
+            onClick={() => { setGreeting(null); setOpen(!open); }}
+            className="fixed bottom-20 md:bottom-6 left-4 md:left-6 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center overflow-hidden border-2 border-primary/30 relative"
             whileTap={{ scale: 0.9 }}
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             exit={{ scale: 0 }}
           >
+            {/* Pulse ring when greeting is showing */}
+            {greeting && !open && (
+              <>
+                <motion.span
+                  className="absolute inset-0 rounded-full border-2 border-primary/50"
+                  animate={{ scale: [1, 1.6], opacity: [0.6, 0] }}
+                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
+                />
+                <motion.span
+                  className="absolute inset-0 rounded-full border-2 border-primary/30"
+                  animate={{ scale: [1, 2], opacity: [0.4, 0] }}
+                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut", delay: 0.3 }}
+                />
+              </>
+            )}
             {open ? (
               <div className="w-full h-full bg-gradient-brand flex items-center justify-center">
                 <X className="h-6 w-6 text-white" />
