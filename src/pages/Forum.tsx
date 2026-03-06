@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 // Label removed - using inline labels
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { AtSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -61,6 +62,106 @@ const reactions = [
   { type: "dislike", emoji: "👎", label: "لم يعجبني" },
 ];
 
+// ─── Mention helpers ─────────────────────────────────────────────────────────
+
+/** Render text with @mentions highlighted as styled chips */
+const renderWithMentions = (text: string) => {
+  const parts = text.split(/(@\w[\w\u0600-\u06FF]*)/g);
+  return parts.map((part, i) =>
+    part.startsWith("@") ? (
+      <span key={i} className="inline-flex items-center gap-0.5 text-primary font-bold bg-primary/10 px-1 py-0.5 rounded-md text-xs">
+        <AtSign className="h-2.5 w-2.5" />{part.slice(1)}
+      </span>
+    ) : <span key={i}>{part}</span>
+  );
+};
+
+/** Extract @usernames from text */
+const extractMentions = (text: string): string[] =>
+  [...new Set((text.match(/@([\w\u0600-\u06FF]+)/g) || []).map(m => m.slice(1)))];
+
+/** MentionInput: textarea/input with @ autocomplete */
+const MentionInput = ({
+  value, onChange, placeholder, multiline = false, className = "", profiles,
+  onKeyDown,
+}: {
+  value: string; onChange: (v: string) => void; placeholder?: string;
+  multiline?: boolean; className?: string; profiles: Record<string, any>;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
+}) => {
+  const [query, setQuery] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [dropdownIdx, setDropdownIdx] = useState(0);
+  const ref = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
+
+  const allNames = Object.values(profiles).map(p => p.full_name).filter(Boolean) as string[];
+
+  const filtered = query
+    ? allNames.filter(n => n.toLowerCase().includes(query.toLowerCase())).slice(0, 6)
+    : [];
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+    const v = e.target.value;
+    onChange(v);
+    const cur = e.target.selectionStart ?? v.length;
+    const before = v.slice(0, cur);
+    const match = before.match(/@([\w\u0600-\u06FF]*)$/);
+    if (match) { setQuery(match[1]); setShowDropdown(true); setDropdownIdx(0); }
+    else { setShowDropdown(false); setQuery(""); }
+  };
+
+  const insertMention = (name: string) => {
+    const cur = ref.current?.selectionStart ?? value.length;
+    const before = value.slice(0, cur);
+    const after = value.slice(cur);
+    const replaced = before.replace(/@([\w\u0600-\u06FF]*)$/, `@${name} `);
+    onChange(replaced + after);
+    setShowDropdown(false);
+    setQuery("");
+    setTimeout(() => { ref.current?.focus(); ref.current?.setSelectionRange(replaced.length, replaced.length); }, 0);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+    if (showDropdown && filtered.length > 0) {
+      if (e.key === "ArrowDown") { e.preventDefault(); setDropdownIdx(i => Math.min(i + 1, filtered.length - 1)); return; }
+      if (e.key === "ArrowUp") { e.preventDefault(); setDropdownIdx(i => Math.max(i - 1, 0)); return; }
+      if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); insertMention(filtered[dropdownIdx]); return; }
+      if (e.key === "Escape") { setShowDropdown(false); return; }
+    }
+    onKeyDown?.(e);
+  };
+
+  const sharedProps = {
+    ref: ref as any, value, onChange: handleChange, placeholder, onKeyDown: handleKeyDown,
+    className: `${className} font-cairo`,
+  };
+
+  return (
+    <div className="relative w-full">
+      {multiline
+        ? <Textarea {...sharedProps} />
+        : <Input {...sharedProps} />
+      }
+      {showDropdown && filtered.length > 0 && (
+        <div className="absolute z-30 bottom-full mb-1 right-0 left-0 bg-card border border-border rounded-xl shadow-lg overflow-hidden">
+          {filtered.map((name, i) => (
+            <button
+              key={name}
+              onMouseDown={e => { e.preventDefault(); insertMention(name); }}
+              className={`w-full text-right px-3 py-2 text-sm flex items-center gap-2 transition-colors ${i === dropdownIdx ? "bg-primary/10 text-primary" : "hover:bg-accent"}`}
+            >
+              <AtSign className="h-3.5 w-3.5 shrink-0 text-primary/60" />
+              <span className="font-medium">{name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const Forum = () => {
   const { user } = useAuth();
   const [posts, setPosts] = useState<any[]>([]);
@@ -97,6 +198,24 @@ const Forum = () => {
 
   useEffect(() => { fetchData(); }, []);
 
+  /** Send notifications to mentioned users after a post/comment */
+  const notifyMentions = useCallback(async (text: string, postId: string, posterName: string) => {
+    const names = extractMentions(text);
+    if (names.length === 0) return;
+    const profileList = Object.values(profiles);
+    for (const name of names) {
+      const mentioned = profileList.find(p => p.full_name === name);
+      if (!mentioned) continue;
+      await supabase.from("notifications").insert({
+        user_id: mentioned.user_id,
+        title: `تم ذكرك في المنتدى`,
+        message: `${posterName} ذكرك في منشور: "${text.slice(0, 60)}..."`,
+        type: "activity",
+        link: `/forum#${postId}`,
+      } as any);
+    }
+  }, [profiles]);
+
   const createPost = async () => {
     if (!user) { toast.error("يجب تسجيل الدخول أولاً"); return; }
     if (!postForm.title || !postForm.content) { toast.error("يرجى ملء العنوان والمحتوى"); return; }
@@ -122,6 +241,9 @@ const Forum = () => {
     if (error) { toast.error("خطأ في النشر"); console.error(error); }
     else {
       toast.success("تم نشر المنشور بنجاح!");
+      // Notify mentions in title + content
+      const posterName = profiles[user.id]?.full_name || "مستخدم";
+      await notifyMentions(fullContent + " " + postForm.title, "new", posterName);
       setNewPostDialog(false);
       setPostForm({ title: "", content: "", category: "general", extra_context: "" });
       setPostImages([]);
@@ -144,7 +266,12 @@ const Forum = () => {
     if (!text) return;
     const { error } = await supabase.from("forum_comments").insert({ post_id: postId, user_id: user.id, content: text } as any);
     if (error) { toast.error("خطأ في إضافة التعليق"); }
-    else { setCommentText({ ...commentText, [postId]: "" }); fetchData(); }
+    else {
+      const posterName = profiles[user.id]?.full_name || "مستخدم";
+      await notifyMentions(text, postId, posterName);
+      setCommentText({ ...commentText, [postId]: "" });
+      fetchData();
+    }
   };
 
   const deletePost = async (postId: string) => { await supabase.from("forum_posts").delete().eq("id", postId); fetchData(); toast.success("تم حذف المنشور"); };
@@ -480,19 +607,20 @@ const Forum = () => {
                                     )}
                                   </div>
                                 </div>
-                                <p className="text-xs text-muted-foreground">{comment.content}</p>
+                                <p className="text-xs text-muted-foreground leading-relaxed">{renderWithMentions(comment.content)}</p>
                               </div>
                             </motion.div>
                           ))}
                           {user && (
                             <div className="flex gap-2 items-center">
                               <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center shrink-0"><User className="h-4 w-4 text-primary" /></div>
-                              <Input
+                              <MentionInput
                                 value={commentText[post.id] || ""}
-                                onChange={e => setCommentText({ ...commentText, [post.id]: e.target.value })}
-                                placeholder={isQuestion(post.category) ? "اكتب إجابتك..." : "أضف تعليقاً..."}
+                                onChange={v => setCommentText({ ...commentText, [post.id]: v })}
+                                placeholder={isQuestion(post.category) ? "اكتب إجابتك... (يمكنك ذكر @اسم)" : "أضف تعليقاً... (يمكنك ذكر @اسم)"}
                                 className="flex-1 h-9 text-sm"
-                                onKeyDown={e => e.key === "Enter" && addComment(post.id)}
+                                profiles={profiles}
+                                onKeyDown={e => e.key === "Enter" && !e.shiftKey && addComment(post.id)}
                               />
                               <Button size="icon" onClick={() => addComment(post.id)} className="bg-gradient-brand h-9 w-9 shrink-0"><Send className="h-3.5 w-3.5" /></Button>
                             </div>
