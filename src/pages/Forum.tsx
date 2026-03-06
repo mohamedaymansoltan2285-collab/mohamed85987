@@ -383,21 +383,25 @@ const Forum = () => {
                 />
 
                 {getFormFields().map((field, i) => (
-                  <Textarea
+                  <MentionInput
                     key={i}
                     value={field.field === "content" ? postForm.content : postForm.extra_context}
-                    onChange={e => setPostForm({ ...postForm, [field.field === "content" ? "content" : "extra_context"]: e.target.value })}
+                    onChange={v => setPostForm({ ...postForm, [field.field === "content" ? "content" : "extra_context"]: v })}
                     className="min-h-[60px] text-sm"
                     placeholder={field.placeholder}
+                    multiline
+                    profiles={profiles}
                   />
                 ))}
 
                 {!categoryFields[postForm.category] && (
-                  <Textarea
+                  <MentionInput
                     value={postForm.content}
-                    onChange={e => setPostForm({ ...postForm, content: e.target.value })}
+                    onChange={v => setPostForm({ ...postForm, content: v })}
                     className="min-h-[80px] text-sm"
-                    placeholder="اكتب ما تريد مشاركته..."
+                    placeholder="اكتب ما تريد مشاركته... (يمكنك ذكر @اسم)"
+                    multiline
+                    profiles={profiles}
                   />
                 )}
 
@@ -490,8 +494,8 @@ const Forum = () => {
                       </div>
                     )}
 
-                    <h3 className="text-base font-bold text-foreground mb-1.5">{post.title}</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{post.content}</p>
+                    <h3 className="text-base font-bold text-foreground mb-1.5">{renderWithMentions(post.title)}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{renderWithMentions(post.content)}</p>
 
                     {/* Post images - responsive */}
                     {post.image_url && (() => {
