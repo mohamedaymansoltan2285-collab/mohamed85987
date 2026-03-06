@@ -4,6 +4,7 @@ import { Facebook, Twitter, Instagram, Mail, Phone, MapPin, Award, Code2, Extern
 import { motion, AnimatePresence } from "framer-motion";
 import ncwLogo from "@/assets/ncw-logo.png";
 import btuLogo from "@/assets/btu-logo.png";
+import logoImg from "@/assets/logo.png";
 
 const Footer = () => {
   const [glowing, setGlowing] = useState(false);
@@ -22,7 +23,7 @@ const Footer = () => {
           {/* Brand column */}
           <div className="md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
-              <img src="/src/assets/logo.png" alt="شعار الوحدة" className="h-12 w-auto" />
+              <img src={logoImg} alt="شعار الوحدة" className="h-12 w-auto" />
               <span className="font-bold text-lg text-primary">وحدة مناهضة العنف</span>
             </div>
             <p className="text-gray-600 text-sm leading-relaxed mb-4">
