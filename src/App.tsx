@@ -65,7 +65,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="min-h-screen flex flex-col font-cairo bg-background text-foreground overflow-x-hidden" dir="rtl">
       <Navbar />
-      <main className="flex-grow pt-20 pb-20 md:pb-0">{children}</main>
+      <main className="flex-grow pt-20 pb-24 md:pb-0">{children}</main>
       <Footer />
       <BottomNav />
       {!pwaPromptDone && <PWAInstallPrompt onDismiss={handlePwaDismiss} />}
