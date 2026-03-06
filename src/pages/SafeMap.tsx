@@ -1,5 +1,5 @@
+import { useEffect, useRef } from "react";
 import { MapPin, Shield, AlertTriangle } from "lucide-react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -19,6 +19,31 @@ const safePoints = [
 ];
 
 const SafeMap = () => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+
+    const map = L.map(mapRef.current).setView([29.0744, 31.0981], 17);
+    mapInstanceRef.current = map;
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+
+    safePoints.forEach((point) => {
+      L.marker([point.lat, point.lng])
+        .addTo(map)
+        .bindPopup(`<div dir="rtl"><strong>${point.name}</strong><br/><span style="font-size:13px">${point.desc}</span></div>`);
+    });
+
+    return () => {
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+  }, []);
+
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="text-center mb-12">
@@ -30,28 +55,7 @@ const SafeMap = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 rounded-3xl border border-border h-[500px] overflow-hidden">
-          <MapContainer
-            center={[29.0744, 31.0981]}
-            zoom={17}
-            scrollWheelZoom={true}
-            style={{ height: "100%", width: "100%", borderRadius: "1.5rem" }}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            {safePoints.map((point, i) => (
-              <Marker key={i} position={[point.lat, point.lng]}>
-                <Popup>
-                  <div className="text-right" dir="rtl">
-                    <strong>{point.name}</strong>
-                    <br />
-                    <span className="text-sm">{point.desc}</span>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
+          <div ref={mapRef} style={{ height: "100%", width: "100%" }} />
         </div>
 
         <div className="space-y-6">
